@@ -37,6 +37,7 @@
 		]
 	},
 	"dependencies": {
+		"@vercel/analytics": "^1.6.1",
 		"svelte-tiny-virtual-list": "^3.0.1",
 		"valibot": "^1.2.0"
 	}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, fly, slide } from "svelte/transition";
   import { flip } from "svelte/animate";
-  import { cubicOut } from "svelte/easing";
+  import { cubicOut, expoOut } from "svelte/easing";
   import { Tween } from "svelte/motion";
 
   import {
@@ -109,15 +109,15 @@
   }
 
   async function restartGame() {
+    const newSongs = await getRandomSongs({ n: 10, years: [YEAR] });
+
     audioElements.forEach((audio) => {
       audio.pause();
       audio.src = "";
     });
     audioElements.clear();
-
     currentAudioIndex = null;
 
-    songs = [];
     score = 0;
     isNewHighScore = false;
     gameState = "active";
@@ -125,13 +125,12 @@
     revealResult = null;
     tweenNumber.set(0, { duration: 0 });
 
-    songs = await getRandomSongs({ n: 10, years: [YEAR] });
+    songs = newSongs;
   }
 
   let audioElements = $state<Map<number, HTMLAudioElement>>(new Map());
 
   function getAudio(index: number, url: string): HTMLAudioElement {
-    console.log("AUDIO URL: ", url);
     const audio = new Audio(url);
     audio.loop = false;
     audioElements.set(index, audio);
@@ -177,7 +176,9 @@
 
 <Metadata title="Hoger Lager" />
 
-<div class="fixed right-4 top-4 z-10 hidden flex-row gap-2 lg:flex">
+<div
+  class="fixed right-4 top-4 z-10 hidden flex-row gap-2 lg:flex bg-linear-to-br from-primary to-secondary"
+>
   <Button
     variant="ghost"
     class="bg-background/70 backdrop-blur-sm"
@@ -313,11 +314,15 @@
   class:scale-125={revealResult !== null}
 >
   {#if revealResult === "correct"}
-    <Check class="size-10 md:size-12" />
+    <div class="" in:fade>
+      <Check class="size-10 md:size-12" />
+    </div>
   {:else if revealResult === "incorrect"}
-    <X class="size-10 md:size-12" />
+    <div class="" in:fade>
+      <X class="size-10 md:size-12" />
+    </div>
   {:else}
-    VS
+    <span in:fade>VS</span>
   {/if}
 </div>
 
@@ -333,7 +338,7 @@
           "w-full h-full relative transition-all",
           index === 0 && "grayscale",
         ]}
-        animate:flip={{ duration: 500 }}
+        animate:flip={{ duration: 600, easing: expoOut }}
       >
         <div class="absolute inset-0 h-full -z-10 w-full bg-black"></div>
         <img

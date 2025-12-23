@@ -117,6 +117,7 @@
 
     currentAudioIndex = null;
 
+    songs = [];
     score = 0;
     isNewHighScore = false;
     gameState = "active";

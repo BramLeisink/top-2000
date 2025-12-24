@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import Button from "./ui/button/button.svelte";
 
-  const imageList = [
+  const imageList: string[] = [
     "https://images.genius.com/718de9d1fbcaae9f3c9b1bf483bfa8f1.1000x1000x1.png",
     "https://images.genius.com/e5c28d1d190c94451aa6a7e1754063b5.600x600x1.jpg",
     "https://images.genius.com/b7b575c1c5015ee29a929bc6312b9f74.599x593x1.png",
@@ -170,7 +170,6 @@
     "https://images.genius.com/fbb13ef5e4e4c4bd6567dc375ffb52fb.1000x1000x1.png",
     "https://images.genius.com/a14a1afd912f8bd8619eff24ba88bc97.600x600x1.jpg",
     "https://images.genius.com/564db7dd9b6d377c6c374a79378601f2.718x718x1.jpg",
-    null,
     "https://images.genius.com/0c6b09c82e60def45c2985294d3b422e.640x640x1.jpg",
     "https://images.genius.com/561c0a6e0c2b3febb417f06b9e783c54.1000x1000x1.png",
     "https://images.genius.com/0ed062e358800a3a3a13d00863efa2e5.1000x1000x1.png",
@@ -314,18 +313,22 @@
     isLoaded: boolean;
   }
 
-  let gridSquares: GridSquare[] = [];
-  let transitionInterval: number | null = null;
-  let squareSize = 150;
-  let cols = 10;
-  let rows = 8;
-  let gridWidth = 0;
-  let gridHeight = 0;
-  let offsetX = 0;
-  let offsetY = 0;
+  let gridSquares = $state<GridSquare[]>([]);
+  let squareSize = $state(150);
+  let cols = $state(0);
+  let rows = $state(0);
+  let gridWidth = $state(0);
+  let gridHeight = $state(0);
+  let offsetX = $state(0);
+  let offsetY = $state(0);
+  let isInitialLoadComplete = $state(false);
 
+  let containerW = $state(0);
+  let containerH = $state(0);
+
+  let transitionInterval: number | null = null;
+  let isComponentMounted = true;
   const imageCache = new Set<string>();
-  let isInitialLoadComplete = false;
 
   function shuffle<T>(array: T[]): T[] {
     const copy = [...array];
@@ -336,27 +339,12 @@
     return copy;
   }
 
-  function getUsedImages(excludeSquareId?: number): Set<string> {
-    const used = new Set<string>();
-    for (const sq of gridSquares) {
-      if (sq.id === excludeSquareId) continue;
-      used.add(sq.currentImage);
-    }
-    return used;
-  }
-
   function getRandomImage(): string {
-    const filteredImages = imageList.filter(
-      (img): img is string => typeof img === "string"
-    );
-    return filteredImages[Math.floor(Math.random() * filteredImages.length)];
+    return imageList[Math.floor(Math.random() * imageList.length)];
   }
 
-  function preloadImage(url: string): Promise<void> {
-    if (imageCache.has(url)) {
-      return Promise.resolve();
-    }
-
+  async function preloadImage(url: string): Promise<void> {
+    if (imageCache.has(url)) return Promise.resolve();
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -364,25 +352,24 @@
         resolve();
       };
       img.onerror = () => {
-        console.warn(`Failed to load image: ${url}`);
-        resolve(); // Resolve anyway to not block the queue
+        console.warn(`Failed: ${url}`);
+        resolve();
       };
       img.src = url;
     });
   }
 
   async function loadImagesRandomly() {
-    const indices = gridSquares.map((_, i) => i);
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-    }
+    const indices = shuffle(gridSquares.map((_, i) => i));
 
     for (const index of indices) {
+      if (!isComponentMounted) return;
+
       const square = gridSquares[index];
       await preloadImage(square.currentImage);
-      square.isLoaded = true;
-      gridSquares = gridSquares;
+
+      if (!isComponentMounted) return;
+      gridSquares[index].isLoaded = true;
 
       await new Promise((resolve) => setTimeout(resolve, 30));
     }
@@ -391,28 +378,30 @@
     startTransitions();
   }
 
-  function calculateGrid() {
-    if (typeof window === "undefined") return;
+  function calculateGrid(width: number, height: number) {
+    if (width === 0 || height === 0) return;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    let newSquareSize = 160;
+    if (width < 640) newSquareSize = 100;
+    else if (width < 1024) newSquareSize = 120;
+    else if (width < 1536) newSquareSize = 140;
 
-    if (width < 640) {
-      squareSize = 100;
-    } else if (width < 1024) {
-      squareSize = 120;
-    } else if (width < 1536) {
-      squareSize = 140;
-    } else {
-      squareSize = 160;
+    const newCols = Math.ceil(width / newSquareSize) + 2;
+    const newRows = Math.ceil(height / newSquareSize) + 2;
+
+    if (newCols === cols && newRows === rows) {
+      gridWidth = newCols * newSquareSize;
+      gridHeight = newRows * newSquareSize;
+      offsetX = -(gridWidth - width) / 2;
+      offsetY = -(gridHeight - height) / 2;
+      return;
     }
 
-    cols = Math.ceil(width / squareSize) + 2;
-    rows = Math.ceil(height / squareSize) + 2;
-
+    squareSize = newSquareSize;
+    cols = newCols;
+    rows = newRows;
     gridWidth = cols * squareSize;
     gridHeight = rows * squareSize;
-
     offsetX = -(gridWidth - width) / 2;
     offsetY = -(gridHeight - height) / 2;
 
@@ -421,113 +410,77 @@
 
   function initializeGrid() {
     const totalSquares = cols * rows;
-
     const shuffledImages = shuffle(imageList);
-    const allowDuplicates = imageList.length < totalSquares;
 
-    gridSquares = Array.from({ length: totalSquares }, (_, i) => {
-      let image =
-        shuffledImages[i] ??
-        (allowDuplicates
-          ? shuffledImages[i % shuffledImages.length]
-          : shuffledImages[0]);
-
-      if (typeof image !== "string") {
-        image = getRandomImage();
-      }
-
-      return {
-        id: i,
-        currentImage: image,
-        nextImage: null,
-        isTransitioning: false,
-        isLoaded: false,
-      };
-    });
+    gridSquares = Array.from({ length: totalSquares }, (_, i) => ({
+      id: i,
+      currentImage:
+        shuffledImages[i % shuffledImages.length] ?? getRandomImage(),
+      nextImage: null,
+      isTransitioning: false,
+      isLoaded: false,
+    }));
 
     isInitialLoadComplete = false;
     loadImagesRandomly();
   }
 
   function startTransitions() {
-    if (transitionInterval) {
-      clearInterval(transitionInterval);
-    }
-
+    if (transitionInterval) clearInterval(transitionInterval);
     transitionInterval = window.setInterval(() => {
-      fadeRandomSquare();
+      if (isComponentMounted) fadeRandomSquare();
     }, 1500);
   }
 
   async function fadeRandomSquare() {
     if (gridSquares.length === 0 || !isInitialLoadComplete) return;
 
-    const availableSquares = gridSquares.filter((sq) => !sq.isTransitioning);
-    if (availableSquares.length === 0) return;
+    const idx = Math.floor(Math.random() * gridSquares.length);
+    const square = gridSquares[idx];
 
-    const randomSquare =
-      availableSquares[Math.floor(Math.random() * availableSquares.length)];
+    if (square.isTransitioning) return;
 
-    const usedImages = getUsedImages(randomSquare.id);
-
-    const candidates = imageList.filter(
-      (img): img is string =>
-        typeof img === "string" &&
-        img !== randomSquare.currentImage &&
-        !usedImages.has(img)
-    );
-
-    const newImage: string =
-      candidates.length > 0
-        ? candidates[Math.floor(Math.random() * candidates.length)]
-        : getRandomImage(); // fallback only if unavoidable
-
+    const newImage = getRandomImage();
     await preloadImage(newImage);
 
-    randomSquare.nextImage = newImage;
-    randomSquare.isTransitioning = true;
-    gridSquares = gridSquares;
+    if (!isComponentMounted) return;
+
+    gridSquares[idx].nextImage = newImage;
+    gridSquares[idx].isTransitioning = true;
 
     setTimeout(() => {
-      randomSquare.currentImage = newImage;
-      randomSquare.nextImage = null;
-      randomSquare.isTransitioning = false;
-      gridSquares = gridSquares;
+      if (!isComponentMounted) return;
+      gridSquares[idx].currentImage = newImage;
+      gridSquares[idx].nextImage = null;
+      gridSquares[idx].isTransitioning = false;
     }, 800);
   }
 
+  $effect(() => {
+    calculateGrid(containerW, containerH);
+  });
+
   onMount(() => {
-    calculateGrid();
-
-    let resizeTimeout: number;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = window.setTimeout(calculateGrid, 150);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      if (transitionInterval) {
-        clearInterval(transitionInterval);
-      }
-    };
+    isComponentMounted = true;
   });
 
   onDestroy(() => {
-    if (transitionInterval) {
-      clearInterval(transitionInterval);
-    }
+    isComponentMounted = false;
+    if (transitionInterval) clearInterval(transitionInterval);
   });
 </script>
 
-<section class="relative h-screen w-full overflow-hidden bg-black">
+<section
+  class="relative h-screen w-full overflow-hidden bg-black"
+  bind:clientWidth={containerW}
+  bind:clientHeight={containerH}
+>
   <div
     class="absolute grid-container"
     style="
-      left: {offsetX}px;
-      top: {offsetY}px;
-      width: {gridWidth}px;
+      left: {offsetX}px; 
+      top: {offsetY}px; 
+      width: {gridWidth}px; 
       height: {gridHeight}px;
       display: grid;
       grid-template-columns: repeat({cols}, {squareSize}px);
@@ -536,24 +489,19 @@
   >
     {#each gridSquares as square (square.id)}
       <div class="square-container">
-        <!-- Current image -->
         <img
           src={square.currentImage}
           alt=""
           class="square-image"
           class:loaded={square.isLoaded}
           loading="eager"
-          decoding="async"
         />
-
-        <!-- Next image (during transition) -->
         {#if square.nextImage && square.isTransitioning}
           <img
             src={square.nextImage}
             alt=""
             class="square-image square-overlay z-10"
             loading="eager"
-            decoding="async"
           />
         {/if}
       </div>
@@ -599,6 +547,7 @@
 <style>
   .grid-container {
     position: absolute;
+    will-change: transform;
   }
 
   .square-container {
@@ -606,17 +555,15 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: #111;
   }
 
   .square-image {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
     opacity: 0;
     transition: opacity 0.5s ease-in-out;
   }
@@ -626,11 +573,9 @@
   }
 
   .square-overlay {
-    z-index: 1;
-    animation: fadeInOverlay 0.8s ease-in-out forwards;
+    animation: fadeIn 0.8s ease-in-out forwards;
   }
-
-  @keyframes fadeInOverlay {
+  @keyframes fadeIn {
     from {
       opacity: 0;
     }

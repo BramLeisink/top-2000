@@ -5,4 +5,4 @@
 
 <Metadata title="Home" />
 
-<Hero />
+<Hero class="flex-1" />

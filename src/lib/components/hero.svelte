@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import Button from "./ui/button/button.svelte";
+  import { cn } from "$lib/utils";
 
   const imageList: string[] = [
     "https://images.genius.com/718de9d1fbcaae9f3c9b1bf483bfa8f1.1000x1000x1.png",
@@ -330,6 +331,8 @@
   let isComponentMounted = true;
   const imageCache = new Set<string>();
 
+  let { class: className }: { class?: string } = $props();
+
   function shuffle<T>(array: T[]): T[] {
     const copy = [...array];
     for (let i = copy.length - 1; i > 0; i--) {
@@ -471,7 +474,10 @@
 </script>
 
 <section
-  class="relative h-screen w-full overflow-hidden bg-black"
+  class={cn(
+    "relative w-full flex flex-col overflow-hidden bg-black",
+    className
+  )}
   bind:clientWidth={containerW}
   bind:clientHeight={containerH}
 >
@@ -511,7 +517,7 @@
   <div class="absolute inset-0 bg-black/75 z-20"></div>
 
   <div
-    class="relative z-30 flex h-full items-center justify-center px-4 sm:px-6 lg:px-8"
+    class="relative z-30 flex flex-1 items-center justify-center px-4 sm:px-6 lg:px-8"
   >
     <div class="max-w-5xl text-center">
       <h1

@@ -176,9 +176,7 @@
 
 <Metadata title="Hoger Lager" />
 
-<div
-  class="fixed right-4 top-4 z-10 hidden flex-row gap-2 lg:flex bg-linear-to-br from-primary to-secondary"
->
+<div class="fixed right-4 top-4 z-10 hidden flex-row gap-2 lg:flex">
   <Button
     variant="ghost"
     class="bg-background/70 backdrop-blur-sm"

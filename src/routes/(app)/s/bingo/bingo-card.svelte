@@ -83,7 +83,7 @@
   </div>
 
   <div class="px-8 pb-4">
-    <div class="grid grid-cols-5 gap-[2px]">
+    <div class="grid grid-cols-5 gap-0.5">
       {#each grid as row}
         {#each row as value}
           {@render cell(value)}

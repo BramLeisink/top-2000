@@ -72,7 +72,7 @@
   }
 </script>
 
-<div class="flex-1 hidden lg:flex">
+<div class="flex-1 hidden lg:flex print:flex">
   <aside
     class="fixed left-0 top-[--header-height] h-full w-80 bg-secondary text-white z-20 print:hidden overflow-y-auto shadow-2xl"
   >
@@ -197,7 +197,7 @@
   </main>
 </div>
 
-<div class="lg:hidden">
+<div class="lg:hidden print:hidden">
   Bekijk deze pagina op een groter scherm om jouw eigen Top2000 bingokaarten te
   maken...
 </div>

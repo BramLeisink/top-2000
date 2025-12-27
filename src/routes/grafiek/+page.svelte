@@ -9,6 +9,8 @@
   };
 
   type ChartConfig = {
+    startYear: number;
+    endYear: number;
     topN: number;
     rowHeight: number;
     colWidth: number;
@@ -33,6 +35,8 @@
   };
 
   const CONFIG: ChartConfig = {
+    startYear: 2015,
+    endYear: 2025,
     topN: 10,
     rowHeight: 60,
     colWidth: 120,
@@ -2087,11 +2091,11 @@
   ];
 
   let allYears = $derived.by(() => {
-    const yearsSet = new Set<number>();
-    rawData.forEach((s) =>
-      Object.keys(s.positions).forEach((y) => yearsSet.add(parseInt(y)))
-    );
-    return Array.from(yearsSet).sort((a, b) => a - b);
+    const years = [];
+    for (let y = CONFIG.startYear; y <= CONFIG.endYear; y++) {
+      years.push(y);
+    }
+    return years;
   });
 
   let width = $derived(
